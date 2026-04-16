@@ -8,25 +8,32 @@
 
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: Arial;
       padding: 20px;
     }
 
     input {
       display: block;
-      margin-bottom: 10px;
+      margin: 8px 0;
       padding: 10px;
       width: 100%;
-      max-width: 300px;
+      max-width: 320px;
     }
 
     button {
-      padding: 10px 15px;
+      padding: 10px;
+      margin: 5px 0;
       cursor: pointer;
     }
 
     li {
       margin: 8px 0;
+    }
+
+    .card {
+      padding: 10px;
+      border: 1px solid #ddd;
+      margin: 10px 0;
     }
   </style>
 </head>
@@ -35,12 +42,24 @@
 
 <h2>🎁 Wishlist</h2>
 
+<!-- ADD WISH -->
 <input id="title" placeholder="Что хочешь?" />
 <input id="price" placeholder="Цена" />
-<button onclick="addWish()">Добавить</button>
+<button onclick="addWish()">Добавить желание</button>
 
-<h3>Мои желания:</h3>
+<h3>Мои желания</h3>
 <ul id="list"></ul>
+
+<hr>
+
+<!-- FRIENDS -->
+<h3>👥 Друзья</h3>
+
+<input id="friendId" placeholder="Telegram ID друга" />
+<button onclick="addFriend()">Добавить в друзья</button>
+
+<h4>Запросы в друзья</h4>
+<div id="friendRequests"></div>
 
 <script>
 /* =======================
@@ -52,7 +71,7 @@ tg.expand();
 const user = tg.initDataUnsafe?.user;
 
 /* =======================
-   SUPABASE CONFIG
+   SUPABASE
 ======================= */
 const SUPABASE_URL = "https://wgrurjbmndghdsbogmbm.supabase.co";
 const SUPABASE_KEY = "sb_publishable_ksR28g5qpcdV3Ef9tSRNxg_IeJSeqTm";
@@ -79,14 +98,13 @@ async function initUser() {
   });
 
   loadWishes();
+  loadFriendRequests();
 }
 
 /* =======================
-   LOAD WISHES
+   WISHES
 ======================= */
 async function loadWishes() {
-  if (!user) return;
-
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/wishes?user_id=eq.${user.id}`,
     {
@@ -99,19 +117,21 @@ async function loadWishes() {
 
   const data = await res.json();
 
-  const list = document.getElementById("list");
-  list.innerHTML = "";
+  document.getElementById("list").innerHTML = data.map(w => `
+    <li class="card">
+      🎁 <b>${w.title}</b> — ${w.price || ""}
 
-  data.forEach(w => {
-    const li = document.createElement("li");
-    li.innerText = `🎁 ${w.title} - ${w.price || ""}`;
-    list.appendChild(li);
-  });
+      <br/>
+
+      ${
+        w.status === "reserved"
+          ? `🔒 Зарезервировано`
+          : `<button onclick="reserveWish(${w.id})">Забронировать</button>`
+      }
+    </li>
+  `).join("");
 }
 
-/* =======================
-   ADD WISH
-======================= */
 async function addWish() {
   const title = document.getElementById("title").value;
   const price = document.getElementById("price").value;
@@ -127,8 +147,8 @@ async function addWish() {
     },
     body: JSON.stringify({
       user_id: user.id,
-      title: title,
-      price: price,
+      title,
+      price,
       status: "active"
     })
   });
@@ -140,7 +160,91 @@ async function addWish() {
 }
 
 /* =======================
-   START APP
+   RESERVE WISH (🔥 фича)
+======================= */
+async function reserveWish(wishId) {
+  await fetch(`${SUPABASE_URL}/rest/v1/wishes?id=eq.${wishId}`, {
+    method: "PATCH",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      status: "reserved",
+      reserved_by: user.id
+    })
+  });
+
+  loadWishes();
+}
+
+/* =======================
+   FRIENDS
+======================= */
+async function addFriend() {
+  const friendId = document.getElementById("friendId").value;
+
+  if (!friendId) return;
+
+  await fetch(`${SUPABASE_URL}/rest/v1/friendships`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      user_id: user.id,
+      friend_id: Number(friendId),
+      status: "pending"
+    })
+  });
+
+  alert("Запрос отправлен 👌");
+  loadFriendRequests();
+}
+
+async function loadFriendRequests() {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/friendships?friend_id=eq.${user.id}&status=eq.pending`,
+    {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`
+      }
+    }
+  );
+
+  const data = await res.json();
+
+  document.getElementById("friendRequests").innerHTML = data.map(f => `
+    <div class="card">
+      👤 Запрос от: ${f.user_id}
+      <br/>
+      <button onclick="acceptFriend(${f.id})">Принять</button>
+    </div>
+  `).join("");
+}
+
+async function acceptFriend(id) {
+  await fetch(`${SUPABASE_URL}/rest/v1/friendships?id=eq.${id}`, {
+    method: "PATCH",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      status: "accepted"
+    })
+  });
+
+  loadFriendRequests();
+}
+
+/* =======================
+   START
 ======================= */
 initUser();
 
