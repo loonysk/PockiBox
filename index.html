@@ -2,38 +2,98 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Wishlist App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wishlist</title>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
+    :root {
+      --bg: #0b0c10;
+      --card: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.1);
+      --text: #ffffff;
+      --muted: rgba(255,255,255,0.6);
+      --accent: #4f8cff;
+      --danger: #ff4d4d;
+      --radius: 16px;
+    }
+
     body {
-      font-family: Arial;
-      padding: 20px;
+      margin: 0;
+      padding: 18px;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+      background: var(--bg);
+      color: var(--text);
     }
 
-    input {
-      display: block;
-      margin: 8px 0;
-      padding: 10px;
-      width: 100%;
-      max-width: 320px;
+    h2 {
+      font-size: 22px;
+      margin-bottom: 10px;
     }
 
-    button {
-      padding: 10px;
-      margin: 5px 0;
-      cursor: pointer;
-    }
-
-    li {
-      margin: 8px 0;
+    h3 {
+      margin-top: 22px;
+      font-size: 16px;
+      color: var(--muted);
     }
 
     .card {
-      padding: 10px;
-      border: 1px solid #ddd;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
       margin: 10px 0;
+      backdrop-filter: blur(10px);
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 6px 0;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      outline: none;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 6px;
+      border-radius: 12px;
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: rgba(255,255,255,0.08);
+    }
+
+    button.danger {
+      background: var(--danger);
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .row button {
+      flex: 1;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .wish-title {
+      font-weight: 600;
     }
   </style>
 </head>
@@ -42,43 +102,37 @@
 
 <h2>🎁 Wishlist</h2>
 
-<!-- ADD WISH -->
-<input id="title" placeholder="Что хочешь?" />
-<input id="price" placeholder="Цена" />
-<button onclick="addWish()">Добавить желание</button>
+<div class="card">
+  <input id="title" placeholder="Что хочешь?" />
+  <input id="price" placeholder="Цена" />
+  <button onclick="addWish()">Добавить желание</button>
+</div>
 
 <h3>Мои желания</h3>
-<ul id="list"></ul>
+<div id="list"></div>
 
-<hr>
-
-<!-- FRIENDS -->
 <h3>👥 Друзья</h3>
 
-<input id="friendId" placeholder="Telegram ID друга" />
-<button onclick="addFriend()">Добавить в друзья</button>
+<div class="card">
+  <input id="friendId" placeholder="Telegram ID друга" />
+  <button onclick="addFriend()">Добавить в друзья</button>
+</div>
 
-<h4>Запросы в друзья</h4>
+<h3>📩 Запросы</h3>
 <div id="friendRequests"></div>
 
 <script>
-/* =======================
-   TELEGRAM INIT
-======================= */
 const tg = window.Telegram.WebApp;
 tg.expand();
 
 const user = tg.initDataUnsafe?.user;
 
-/* =======================
-   SUPABASE
-======================= */
 const SUPABASE_URL = "https://wgrurjbmndghdsbogmbm.supabase.co";
 const SUPABASE_KEY = "sb_publishable_ksR28g5qpcdV3Ef9tSRNxg_IeJSeqTm";
 
-/* =======================
+/* =====================
    INIT USER
-======================= */
+===================== */
 async function initUser() {
   if (!user) return;
 
@@ -101,9 +155,9 @@ async function initUser() {
   loadFriendRequests();
 }
 
-/* =======================
+/* =====================
    WISHES
-======================= */
+===================== */
 async function loadWishes() {
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/wishes?user_id=eq.${user.id}`,
@@ -118,17 +172,18 @@ async function loadWishes() {
   const data = await res.json();
 
   document.getElementById("list").innerHTML = data.map(w => `
-    <li class="card">
-      🎁 <b>${w.title}</b> — ${w.price || ""}
+    <div class="card">
+      <div class="wish-title">🎁 ${w.title}</div>
+      <div class="muted">${w.price || ""}</div>
 
-      <br/>
-
-      ${
-        w.status === "reserved"
-          ? `🔒 Зарезервировано`
-          : `<button onclick="reserveWish(${w.id})">Забронировать</button>`
-      }
-    </li>
+      <div class="row">
+        ${
+          w.status === "reserved"
+            ? `<button class="secondary">🔒 Зарезервировано</button>`
+            : `<button onclick="reserveWish(${w.id})">Забронировать</button>`
+        }
+      </div>
+    </div>
   `).join("");
 }
 
@@ -159,11 +214,11 @@ async function addWish() {
   loadWishes();
 }
 
-/* =======================
-   RESERVE WISH (🔥 фича)
-======================= */
-async function reserveWish(wishId) {
-  await fetch(`${SUPABASE_URL}/rest/v1/wishes?id=eq.${wishId}`, {
+/* =====================
+   RESERVE
+===================== */
+async function reserveWish(id) {
+  await fetch(`${SUPABASE_URL}/rest/v1/wishes?id=eq.${id}`, {
     method: "PATCH",
     headers: {
       apikey: SUPABASE_KEY,
@@ -179,9 +234,9 @@ async function reserveWish(wishId) {
   loadWishes();
 }
 
-/* =======================
+/* =====================
    FRIENDS
-======================= */
+===================== */
 async function addFriend() {
   const friendId = document.getElementById("friendId").value;
 
@@ -201,7 +256,6 @@ async function addFriend() {
     })
   });
 
-  alert("Запрос отправлен 👌");
   loadFriendRequests();
 }
 
@@ -220,8 +274,7 @@ async function loadFriendRequests() {
 
   document.getElementById("friendRequests").innerHTML = data.map(f => `
     <div class="card">
-      👤 Запрос от: ${f.user_id}
-      <br/>
+      👤 ${f.user_id}
       <button onclick="acceptFriend(${f.id})">Принять</button>
     </div>
   `).join("");
@@ -243,9 +296,9 @@ async function acceptFriend(id) {
   loadFriendRequests();
 }
 
-/* =======================
+/* =====================
    START
-======================= */
+===================== */
 initUser();
 
 </script>
