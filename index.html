@@ -1,34 +1,149 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Wishlist App</title>
+
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    input {
+      display: block;
+      margin-bottom: 10px;
+      padding: 10px;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    button {
+      padding: 10px 15px;
+      cursor: pointer;
+    }
+
+    li {
+      margin: 8px 0;
+    }
+  </style>
 </head>
+
 <body>
 
 <h2>🎁 Wishlist</h2>
 
-<input id="title" placeholder="Что хочешь?">
-<input id="price" placeholder="Цена">
-
+<input id="title" placeholder="Что хочешь?" />
+<input id="price" placeholder="Цена" />
 <button onclick="addWish()">Добавить</button>
 
+<h3>Мои желания:</h3>
 <ul id="list"></ul>
 
 <script>
-  const SUPABASE_URL = "https://wgrurjbmndghdsbogmbm.supabase.co";
-const SUPABASE_KEY = "sb_publishable_ksR28g5qpcdV3Ef9tSRNxg_IeJSeqTm";
+/* =======================
+   TELEGRAM INIT
+======================= */
 const tg = window.Telegram.WebApp;
 tg.expand();
 
 const user = tg.initDataUnsafe?.user;
 
-document.body.innerHTML = `
-  <h1>Привет 👋</h1>
-  <p>Telegram ID: ${user?.id}</p>
-  <p>Username: ${user?.username}</p>
-`;
+/* =======================
+   SUPABASE CONFIG
+======================= */
+const SUPABASE_URL = "https://wgrurjbmndghdsbogmbm.supabase.co";
+const SUPABASE_KEY = "sb_publishable_ksR28g5qpcdV3Ef9tSRNxg_IeJSeqTm";
+
+/* =======================
+   INIT USER
+======================= */
+async function initUser() {
+  if (!user) return;
+
+  await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": "resolution=merge-duplicates"
+    },
+    body: JSON.stringify({
+      telegram_id: user.id,
+      username: user.username,
+      first_name: user.first_name
+    })
+  });
+
+  loadWishes();
+}
+
+/* =======================
+   LOAD WISHES
+======================= */
+async function loadWishes() {
+  if (!user) return;
+
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/wishes?user_id=eq.${user.id}`,
+    {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`
+      }
+    }
+  );
+
+  const data = await res.json();
+
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  data.forEach(w => {
+    const li = document.createElement("li");
+    li.innerText = `🎁 ${w.title} - ${w.price || ""}`;
+    list.appendChild(li);
+  });
+}
+
+/* =======================
+   ADD WISH
+======================= */
+async function addWish() {
+  const title = document.getElementById("title").value;
+  const price = document.getElementById("price").value;
+
+  if (!title) return;
+
+  await fetch(`${SUPABASE_URL}/rest/v1/wishes`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      user_id: user.id,
+      title: title,
+      price: price,
+      status: "active"
+    })
+  });
+
+  document.getElementById("title").value = "";
+  document.getElementById("price").value = "";
+
+  loadWishes();
+}
+
+/* =======================
+   START APP
+======================= */
+initUser();
+
 </script>
 
 </body>
