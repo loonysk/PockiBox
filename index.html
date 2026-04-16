@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Wishlist Social</title>
 
@@ -14,6 +14,24 @@
       font-family: -apple-system;
       background: #0b0c10;
       color: white;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.08);
+      text-align: center;
+    }
+
+    .active {
+      background: #4f8cff;
     }
 
     .card {
@@ -46,42 +64,65 @@
 
 <body>
 
-<h2>🎁 Wishlist Social</h2>
+<h2>🎁 Social Wishlist</h2>
 
-<div class="card">
-  <input id="title" placeholder="Что хочешь?" />
-  <input id="price" placeholder="Цена" />
-  <button onclick="addWish()">Добавить</button>
+<div class="tabs">
+  <div class="tab active" onclick="show('wishes')">Мои желания</div>
+  <div class="tab" onclick="show('feed')">Лента</div>
+  <div class="tab" onclick="show('friends')">Друзья</div>
 </div>
 
-<h3>Мои желания</h3>
-<div id="myWishes"></div>
+<!-- ================= WISHES ================= -->
+<div id="wishes">
+
+  <div class="card">
+    <input id="title" placeholder="Что хочешь?"/>
+    <input id="price" placeholder="Цена"/>
+    <button onclick="addWish()">Добавить</button>
+  </div>
+
+  <div id="myWishes"></div>
+</div>
+
+<!-- ================= FEED ================= -->
+<div id="feed" style="display:none;">
+  <div id="feedList"></div>
+</div>
+
+<!-- ================= FRIENDS ================= -->
+<div id="friends" style="display:none;">
+
+  <div class="card">
+    <input id="searchUser" placeholder="Telegram username"/>
+    <button onclick="sendRequest()">Добавить в друзья</button>
+  </div>
+
+  <h3>Входящие заявки</h3>
+  <div id="requests"></div>
+
+</div>
 
 <script>
+
 const tg = window.Telegram.WebApp;
 tg.expand();
 
 const user = tg.initDataUnsafe?.user;
 
-/* =====================
-   SUPABASE
-===================== */
 const SUPABASE_URL = "https://wgrurjbmndghdsbogmbm.supabase.co";
 const SUPABASE_KEY = "sb_publishable_ksR28g5qpcdV3Ef9tSRNxg_IeJSeqTm";
 
-/* =====================
-   GET REFERRER (🔥 ВАЖНО)
-===================== */
-const startParam = tg.initDataUnsafe?.start_param;
-const referrerId = startParam ? Number(startParam) : null;
+/* ================= TABS ================= */
+function show(tab) {
+  document.getElementById("wishes").style.display = tab === "wishes" ? "block" : "none";
+  document.getElementById("feed").style.display = tab === "feed" ? "block" : "none";
+  document.getElementById("friends").style.display = tab === "friends" ? "block" : "none";
+}
 
-/* =====================
-   INIT USER + AUTO FRIEND
-===================== */
+/* ================= INIT ================= */
 async function init() {
   if (!user) return;
 
-  // создаём пользователя
   await fetch(`${SUPABASE_URL}/rest/v1/users`, {
     method: "POST",
     headers: {
@@ -96,35 +137,14 @@ async function init() {
     })
   });
 
-  // 🔥 если пришёл по ссылке — автоматически друг
-  if (referrerId && referrerId !== user.id) {
-    await fetch(`${SUPABASE_URL}/rest/v1/friendships`, {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        user_id: referrerId,
-        friend_id: user.id,
-        status: "accepted"
-      })
-    });
-  }
-
   loadWishes();
+  loadRequests();
 }
 
 init();
 
-/* =====================
-   WISHES
-===================== */
+/* ================= WISHES ================= */
 async function addWish() {
-  const title = document.getElementById("title").value;
-  const price = document.getElementById("price").value;
-
   await fetch(`${SUPABASE_URL}/rest/v1/wishes`, {
     method: "POST",
     headers: {
@@ -134,8 +154,8 @@ async function addWish() {
     },
     body: JSON.stringify({
       user_id: user.id,
-      title,
-      price,
+      title: title.value,
+      price: price.value,
       status: "active"
     })
   });
@@ -144,25 +164,88 @@ async function addWish() {
 }
 
 async function loadWishes() {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/wishes?user_id=eq.${user.id}`,
-    {
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`
-      }
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/wishes?user_id=eq.${user.id}`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`
     }
-  );
+  });
 
   const data = await res.json();
 
-  document.getElementById("myWishes").innerHTML =
-    data.map(w => `
-      <div class="card">
-        🎁 ${w.title}<br>
-        <span class="muted">${w.price || ""}</span>
-      </div>
-    `).join("");
+  myWishes.innerHTML = data.map(w => `
+    <div class="card">
+      🎁 ${w.title}<br>
+      <span class="muted">${w.price || ""}</span>
+    </div>
+  `).join("");
+}
+
+/* ================= FRIEND REQUESTS ================= */
+async function sendRequest() {
+  const username = searchUser.value;
+
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/users?username=eq.${username}`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`
+    }
+  });
+
+  const data = await res.json();
+  if (!data.length) return alert("Пользователь не найден");
+
+  const toUser = data[0].telegram_id;
+
+  await fetch(`${SUPABASE_URL}/rest/v1/friend_requests`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      from_user: user.id,
+      to_user: toUser,
+      status: "pending"
+    })
+  });
+
+  alert("Запрос отправлен");
+}
+
+async function loadRequests() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/friend_requests?to_user=eq.${user.id}&status=eq.pending`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`
+    }
+  });
+
+  const data = await res.json();
+
+  requests.innerHTML = data.map(r => `
+    <div class="card">
+      👤 Запрос от ${r.from_user}
+      <button onclick="accept(${r.id})">Принять</button>
+    </div>
+  `).join("");
+}
+
+async function accept(id) {
+  await fetch(`${SUPABASE_URL}/rest/v1/friend_requests?id=eq.${id}`, {
+    method: "PATCH",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      status: "accepted"
+    })
+  });
+
+  loadRequests();
 }
 
 </script>
