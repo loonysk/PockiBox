@@ -68,13 +68,8 @@
       color: white;
     }
 
-    .section {
-      display: none;
-    }
-
-    .section.active {
-      display: block;
-    }
+    .section { display: none; }
+    .section.active { display: block; }
 
     .muted {
       opacity: 0.6;
@@ -85,7 +80,7 @@
 
 <body>
 
-<h2>🎁 Wishlist Social</h2>
+<h2>🎁 PockiBox Wishlist</h2>
 
 <!-- ================= MY ================= -->
 <div id="my" class="section active">
@@ -133,7 +128,7 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 
 const user = tg.initDataUnsafe?.user;
-const referrerId = tg.initDataUnsafe?.start_param; // 🔥 ВАЖНО
+const referrerId = tg.initDataUnsafe?.start_param;
 
 const SUPABASE_URL = "https://wgrurjbmndghdsbogmbm.supabase.co";
 const SUPABASE_KEY = "sb_publishable_ksR28g5qpcdV3Ef9tSRNxg_IeJSeqTm";
@@ -142,7 +137,6 @@ const SUPABASE_KEY = "sb_publishable_ksR28g5qpcdV3Ef9tSRNxg_IeJSeqTm";
 async function init() {
   if (!user) return;
 
-  // создаём юзера
   await fetch(`${SUPABASE_URL}/rest/v1/users`, {
     method: "POST",
     headers: {
@@ -157,7 +151,6 @@ async function init() {
     })
   });
 
-  // 💥 АВТО-ДРУЖБА ПО ССЫЛКЕ
   if (referrerId && Number(referrerId) !== user.id) {
     await fetch(`${SUPABASE_URL}/rest/v1/friend_requests`, {
       method: "POST",
@@ -190,12 +183,12 @@ function switchTab(tab, el) {
 
 /* ================= INVITE ================= */
 function inviteFriend() {
-  const link = `https://t.me/YOUR_BOT_USERNAME?startapp=${user.id}`;
+  const link = `https://t.me/PockiBoxBot?startapp=${user.id}`;
 
   navigator.clipboard.writeText(link);
 
   tg.openTelegramLink(
-    `https://t.me/share/url?url=${encodeURIComponent(link)}&text=🎁 Присоединяйся к моему вишлисту`
+    `https://t.me/share/url?url=${encodeURIComponent(link)}&text=🎁 Присоединяйся к моему вишлисту PockiBox`
   );
 }
 
