@@ -8,33 +8,23 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
-    :root {
-      --bg: #0f1115;
-      --card: rgba(255,255,255,0.06);
-      --border: rgba(255,255,255,0.1);
-      --text: #fff;
-      --muted: rgba(255,255,255,0.6);
-      --accent: #7c5cff;
-      --accent2: #4fd1c5;
-    }
-
     body {
       margin: 0;
       padding: 16px;
       padding-bottom: 80px;
       font-family: -apple-system;
-      background: var(--bg);
-      color: var(--text);
+      background: #0f1115;
+      color: white;
     }
 
     h2 { margin: 10px 0; }
 
     .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 18px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 16px;
       padding: 12px;
       margin: 10px 0;
+      border: 1px solid rgba(255,255,255,0.1);
     }
 
     input {
@@ -42,7 +32,7 @@
       padding: 12px;
       margin: 6px 0;
       border-radius: 12px;
-      border: 1px solid var(--border);
+      border: 1px solid rgba(255,255,255,0.1);
       background: rgba(255,255,255,0.05);
       color: white;
     }
@@ -52,66 +42,61 @@
       padding: 12px;
       border-radius: 12px;
       border: none;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      background: #7c5cff;
       color: white;
       font-weight: 600;
     }
 
-    .muted {
-      font-size: 12px;
-      opacity: 0.6;
-    }
-
-    .section {
-      display: none;
-    }
-
-    .active {
-      display: block;
-    }
-
-    /* BOTTOM NAV */
-    .nav {
+    .tabs {
       position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
       display: flex;
       background: rgba(20,20,25,0.95);
-      border-top: 1px solid var(--border);
-      backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(255,255,255,0.1);
     }
 
-    .nav button {
+    .tab {
       flex: 1;
-      background: none;
-      border: none;
-      color: var(--muted);
-      padding: 14px;
-      font-size: 13px;
+      padding: 12px;
+      text-align: center;
+      color: rgba(255,255,255,0.6);
     }
 
-    .nav button.active {
+    .tab.active {
       color: white;
+    }
+
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    .muted {
+      opacity: 0.6;
+      font-size: 12px;
     }
   </style>
 </head>
 
 <body>
 
-<h2>🎁 Wishlist</h2>
+<h2>🎁 Wishlist Social</h2>
 
-<!-- ================= MY WISHES ================= -->
-<div id="wishes" class="section active">
+<!-- ================= MY ================= -->
+<div id="my" class="section active">
 
   <div class="card">
     <input id="title" placeholder="Что хочешь?" />
     <input id="price" placeholder="Цена" />
-    <button onclick="addWish()">Добавить</button>
+    <button onclick="addWish()">Добавить желание</button>
   </div>
 
-  <div id="myWishes"></div>
-
+  <div id="myList"></div>
 </div>
 
 <!-- ================= FEED ================= -->
@@ -126,22 +111,20 @@
 
   <div class="card">
     <button onclick="inviteFriend()">📨 Пригласить друга</button>
-    <div class="muted" style="margin-top:8px">
-      Поделись ссылкой — друг автоматически добавится при входе
-    </div>
+    <div class="muted">Отправь ссылку — друг автоматически добавится</div>
   </div>
 
   <div class="card">
-    <div class="muted">Здесь будет список друзей</div>
+    <div class="muted">Друзья появятся тут</div>
   </div>
 
 </div>
 
 <!-- ================= BOTTOM NAV ================= -->
-<div class="nav">
-  <button class="active" onclick="switchTab('wishes', this)">Мои</button>
-  <button onclick="switchTab('feed', this)">Лента</button>
-  <button onclick="switchTab('friends', this)">Друзья</button>
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('my', this)">Мои</div>
+  <div class="tab" onclick="switchTab('feed', this)">Лента</div>
+  <div class="tab" onclick="switchTab('friends', this)">Друзья</div>
 </div>
 
 <script>
@@ -150,6 +133,7 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 
 const user = tg.initDataUnsafe?.user;
+const referrerId = tg.initDataUnsafe?.start_param; // 🔥 ВАЖНО
 
 const SUPABASE_URL = "https://wgrurjbmndghdsbogmbm.supabase.co";
 const SUPABASE_KEY = "sb_publishable_ksR28g5qpcdV3Ef9tSRNxg_IeJSeqTm";
@@ -158,6 +142,7 @@ const SUPABASE_KEY = "sb_publishable_ksR28g5qpcdV3Ef9tSRNxg_IeJSeqTm";
 async function init() {
   if (!user) return;
 
+  // создаём юзера
   await fetch(`${SUPABASE_URL}/rest/v1/users`, {
     method: "POST",
     headers: {
@@ -172,6 +157,23 @@ async function init() {
     })
   });
 
+  // 💥 АВТО-ДРУЖБА ПО ССЫЛКЕ
+  if (referrerId && Number(referrerId) !== user.id) {
+    await fetch(`${SUPABASE_URL}/rest/v1/friend_requests`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from_user: Number(referrerId),
+        to_user: user.id,
+        status: "accepted"
+      })
+    });
+  }
+
   loadWishes();
 }
 
@@ -180,25 +182,21 @@ init();
 /* ================= TABS ================= */
 function switchTab(tab, el) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 
   document.getElementById(tab).classList.add('active');
   el.classList.add('active');
 }
 
-/* ================= INVITE FRIEND ================= */
+/* ================= INVITE ================= */
 function inviteFriend() {
-  const link = `https://t.me/PockiBoxBot?startapp=${user.id}`;
+  const link = `https://t.me/YOUR_BOT_USERNAME?startapp=${user.id}`;
 
-  // 1. копируем в буфер
   navigator.clipboard.writeText(link);
 
-  // 2. пытаемся открыть Telegram share
-  if (tg.openTelegramLink) {
-    tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=Присоединяйся к моему вишлисту 🎁`);
-  } else {
-    alert("Ссылка скопирована: " + link);
-  }
+  tg.openTelegramLink(
+    `https://t.me/share/url?url=${encodeURIComponent(link)}&text=🎁 Присоединяйся к моему вишлисту`
+  );
 }
 
 /* ================= WISHES ================= */
@@ -222,19 +220,16 @@ async function addWish() {
 }
 
 async function loadWishes() {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/wishes?user_id=eq.${user.id}`,
-    {
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`
-      }
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/wishes?user_id=eq.${user.id}`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`
     }
-  );
+  });
 
   const data = await res.json();
 
-  myWishes.innerHTML = data.map(w => `
+  myList.innerHTML = data.map(w => `
     <div class="card">
       🎁 <b>${w.title}</b><br>
       <span class="muted">${w.price || ""}</span>
