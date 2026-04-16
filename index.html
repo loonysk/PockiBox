@@ -11,79 +11,30 @@
     :root {
       --bg: #0f1115;
       --card: rgba(255,255,255,0.06);
-      --card2: rgba(255,255,255,0.09);
       --border: rgba(255,255,255,0.1);
       --text: #fff;
       --muted: rgba(255,255,255,0.6);
       --accent: #7c5cff;
       --accent2: #4fd1c5;
-      --radius: 18px;
     }
 
     body {
       margin: 0;
       padding: 16px;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display";
+      padding-bottom: 80px;
+      font-family: -apple-system;
       background: var(--bg);
       color: var(--text);
     }
 
-    h2 {
-      margin: 10px 0 14px;
-      font-size: 22px;
-    }
+    h2 { margin: 10px 0; }
 
-    /* TOP BAR */
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-
-    .share {
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: var(--card2);
-      border: 1px solid var(--border);
-      font-size: 13px;
-      cursor: pointer;
-    }
-
-    /* TABS */
-    .tabs {
-      display: flex;
-      gap: 8px;
-      margin: 10px 0 16px;
-    }
-
-    .tab {
-      flex: 1;
-      padding: 10px;
-      border-radius: 999px;
-      text-align: center;
-      background: var(--card);
-      color: var(--muted);
-      font-weight: 500;
-      transition: 0.2s;
-      cursor: pointer;
-      border: 1px solid var(--border);
-    }
-
-    .tab.active {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color: white;
-      transform: scale(1.02);
-    }
-
-    /* CARDS */
     .card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border-radius: 18px;
       padding: 12px;
       margin: 10px 0;
-      backdrop-filter: blur(10px);
     }
 
     input {
@@ -92,9 +43,8 @@
       margin: 6px 0;
       border-radius: 12px;
       border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
+      background: rgba(255,255,255,0.05);
       color: white;
-      outline: none;
     }
 
     button {
@@ -105,7 +55,6 @@
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       color: white;
       font-weight: 600;
-      cursor: pointer;
     }
 
     .muted {
@@ -117,45 +66,58 @@
       display: none;
     }
 
-    .section.active {
+    .active {
       display: block;
     }
 
-    .wish-title {
-      font-weight: 600;
+    /* BOTTOM NAV */
+    .nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      background: rgba(20,20,25,0.95);
+      border-top: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+    }
+
+    .nav button {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--muted);
+      padding: 14px;
+      font-size: 13px;
+    }
+
+    .nav button.active {
+      color: white;
     }
   </style>
 </head>
 
 <body>
 
-<div class="topbar">
-  <h2>🎁 Wishlist</h2>
-  <div class="share" onclick="shareApp()">📤 Share</div>
-</div>
+<h2>🎁 Wishlist</h2>
 
-<div class="tabs">
-  <div class="tab active" onclick="showTab('wishes', this)">Мои</div>
-  <div class="tab" onclick="showTab('feed', this)">Лента</div>
-  <div class="tab" onclick="showTab('friends', this)">Друзья</div>
-</div>
-
-<!-- ================= WISHES ================= -->
+<!-- ================= MY WISHES ================= -->
 <div id="wishes" class="section active">
 
   <div class="card">
     <input id="title" placeholder="Что хочешь?" />
     <input id="price" placeholder="Цена" />
-    <button onclick="addWish()">Добавить желание</button>
+    <button onclick="addWish()">Добавить</button>
   </div>
 
   <div id="myWishes"></div>
+
 </div>
 
 <!-- ================= FEED ================= -->
 <div id="feed" class="section">
-  <div id="feedList" class="card">
-    <div class="muted">Лента появится позже</div>
+  <div class="card">
+    <div class="muted">Лента пока пустая</div>
   </div>
 </div>
 
@@ -163,15 +125,23 @@
 <div id="friends" class="section">
 
   <div class="card">
-    <input id="searchUser" placeholder="username пользователя" />
-    <button onclick="sendRequest()">Добавить в друзья</button>
+    <button onclick="inviteFriend()">📨 Пригласить друга</button>
+    <div class="muted" style="margin-top:8px">
+      Поделись ссылкой — друг автоматически добавится при входе
+    </div>
   </div>
 
   <div class="card">
-    <div class="muted">Входящие запросы</div>
-    <div id="requests"></div>
+    <div class="muted">Здесь будет список друзей</div>
   </div>
 
+</div>
+
+<!-- ================= BOTTOM NAV ================= -->
+<div class="nav">
+  <button class="active" onclick="switchTab('wishes', this)">Мои</button>
+  <button onclick="switchTab('feed', this)">Лента</button>
+  <button onclick="switchTab('friends', this)">Друзья</button>
 </div>
 
 <script>
@@ -183,21 +153,6 @@ const user = tg.initDataUnsafe?.user;
 
 const SUPABASE_URL = "https://wgrurjbmndghdsbogmbm.supabase.co";
 const SUPABASE_KEY = "sb_publishable_ksR28g5qpcdV3Ef9tSRNxg_IeJSeqTm";
-
-/* ================= SHARE ================= */
-function shareApp() {
-  const link = `https://t.me/YOUR_BOT_USERNAME?startapp=${user.id}`;
-  tg.openTelegramLink(link);
-}
-
-/* ================= TABS FIX ================= */
-function showTab(tab, el) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-
-  document.getElementById(tab).classList.add('active');
-  el.classList.add('active');
-}
 
 /* ================= INIT ================= */
 async function init() {
@@ -222,6 +177,26 @@ async function init() {
 
 init();
 
+/* ================= TABS ================= */
+function switchTab(tab, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+
+  document.getElementById(tab).classList.add('active');
+  el.classList.add('active');
+}
+
+/* ================= INVITE FRIEND ================= */
+function inviteFriend() {
+  const link = `https://t.me/YOUR_BOT_USERNAME?startapp=${user.id}`;
+
+  if (tg.shareURL) {
+    tg.shareURL(link); // Telegram native share
+  } else {
+    tg.openTelegramLink(link);
+  }
+}
+
 /* ================= WISHES ================= */
 async function addWish() {
   await fetch(`${SUPABASE_URL}/rest/v1/wishes`, {
@@ -243,12 +218,15 @@ async function addWish() {
 }
 
 async function loadWishes() {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/wishes?user_id=eq.${user.id}`, {
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/wishes?user_id=eq.${user.id}`,
+    {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`
+      }
     }
-  });
+  );
 
   const data = await res.json();
 
@@ -258,39 +236,6 @@ async function loadWishes() {
       <span class="muted">${w.price || ""}</span>
     </div>
   `).join("");
-}
-
-/* ================= FRIEND REQUESTS ================= */
-async function sendRequest() {
-  const username = searchUser.value;
-
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/users?username=eq.${username}`, {
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`
-    }
-  });
-
-  const data = await res.json();
-  if (!data.length) return alert("не найден");
-
-  const toUser = data[0].telegram_id;
-
-  await fetch(`${SUPABASE_URL}/rest/v1/friend_requests`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      from_user: user.id,
-      to_user: toUser,
-      status: "pending"
-    })
-  });
-
-  alert("Запрос отправлен");
 }
 
 </script>
