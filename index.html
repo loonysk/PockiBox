@@ -190,10 +190,14 @@ function switchTab(tab, el) {
 function inviteFriend() {
   const link = `https://t.me/YOUR_BOT_USERNAME?startapp=${user.id}`;
 
-  if (tg.shareURL) {
-    tg.shareURL(link); // Telegram native share
+  // 1. копируем в буфер
+  navigator.clipboard.writeText(link);
+
+  // 2. пытаемся открыть Telegram share
+  if (tg.openTelegramLink) {
+    tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=Присоединяйся к моему вишлисту 🎁`);
   } else {
-    tg.openTelegramLink(link);
+    alert("Ссылка скопирована: " + link);
   }
 }
 
