@@ -3,119 +3,45 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Wishlist Social</title>
+  <title>PockiBox</title>
+
+  <link rel="stylesheet" href="style.css"/>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-  <style>
-    body {
-      margin: 0;
-      padding: 16px;
-      padding-bottom: 80px;
-      font-family: -apple-system;
-      background: #0f1115;
-      color: white;
-    }
-
-    h2 { margin: 10px 0; }
-
-    .card {
-      background: rgba(255,255,255,0.06);
-      border-radius: 16px;
-      padding: 12px;
-      margin: 10px 0;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    input {
-      width: 100%;
-      padding: 12px;
-      margin: 6px 0;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(255,255,255,0.05);
-      color: white;
-    }
-
-    button {
-      width: 100%;
-      padding: 12px;
-      border-radius: 12px;
-      border: none;
-      background: #7c5cff;
-      color: white;
-      font-weight: 600;
-    }
-
-    .tabs {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      display: flex;
-      background: rgba(20,20,25,0.95);
-      border-top: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .tab {
-      flex: 1;
-      padding: 12px;
-      text-align: center;
-      color: rgba(255,255,255,0.6);
-    }
-
-    .tab.active {
-      color: white;
-    }
-
-    .section { display: none; }
-    .section.active { display: block; }
-
-    .muted {
-      opacity: 0.6;
-      font-size: 12px;
-    }
-  </style>
 </head>
 
 <body>
 
 <h2>🎁 PockiBox Wishlist</h2>
 
-<!-- ================= MY ================= -->
+<!-- WISHES -->
 <div id="my" class="section active">
 
   <div class="card">
     <input id="title" placeholder="Что хочешь?" />
     <input id="price" placeholder="Цена" />
-    <button onclick="addWish()">Добавить желание</button>
+    <button onclick="addWish()">Добавить</button>
   </div>
 
   <div id="myList"></div>
 </div>
 
-<!-- ================= FEED ================= -->
+<!-- FEED -->
 <div id="feed" class="section">
-  <div class="card">
-    <div class="muted">Лента пока пустая</div>
-  </div>
+  <div class="card muted">Лента пока пустая</div>
 </div>
 
-<!-- ================= FRIENDS ================= -->
+<!-- FRIENDS -->
 <div id="friends" class="section">
 
   <div class="card">
     <button onclick="inviteFriend()">📨 Пригласить друга</button>
-    <div class="muted">Отправь ссылку — друг автоматически добавится</div>
-  </div>
-
-  <div class="card">
-    <div class="muted">Друзья появятся тут</div>
+    <div class="muted">Поделись ссылкой</div>
   </div>
 
 </div>
 
-<!-- ================= BOTTOM NAV ================= -->
+<!-- BOTTOM NAV -->
 <div class="tabs">
   <div class="tab active" onclick="switchTab('my', this)">Мои</div>
   <div class="tab" onclick="switchTab('feed', this)">Лента</div>
@@ -128,12 +54,11 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 
 const user = tg.initDataUnsafe?.user;
-const referrerId = tg.initDataUnsafe?.start_param;
 
 const SUPABASE_URL = "https://wgrurjbmndghdsbogmbm.supabase.co";
 const SUPABASE_KEY = "sb_publishable_ksR28g5qpcdV3Ef9tSRNxg_IeJSeqTm";
 
-/* ================= INIT ================= */
+/* INIT */
 async function init() {
   if (!user) return;
 
@@ -151,28 +76,12 @@ async function init() {
     })
   });
 
-  if (referrerId && Number(referrerId) !== user.id) {
-    await fetch(`${SUPABASE_URL}/rest/v1/friend_requests`, {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from_user: Number(referrerId),
-        to_user: user.id,
-        status: "accepted"
-      })
-    });
-  }
-
   loadWishes();
 }
 
 init();
 
-/* ================= TABS ================= */
+/* TABS */
 function switchTab(tab, el) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -181,18 +90,17 @@ function switchTab(tab, el) {
   el.classList.add('active');
 }
 
-/* ================= INVITE ================= */
+/* INVITE */
 function inviteFriend() {
   const link = `https://t.me/PockiBoxBot?startapp=${user.id}`;
-
   navigator.clipboard.writeText(link);
 
   tg.openTelegramLink(
-    `https://t.me/share/url?url=${encodeURIComponent(link)}&text=🎁 Присоединяйся к моему вишлисту PockiBox`
+    `https://t.me/share/url?url=${encodeURIComponent(link)}&text=🎁 PockiBox Wishlist`
   );
 }
 
-/* ================= WISHES ================= */
+/* WISHES */
 async function addWish() {
   await fetch(`${SUPABASE_URL}/rest/v1/wishes`, {
     method: "POST",
