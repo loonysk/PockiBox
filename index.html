@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PockiBox</title>
+  <title>PockiBox Social</title>
 
   <link rel="stylesheet" href="style.css"/>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -11,15 +11,22 @@
 
 <body>
 
-<h2>🎁 PockiBox Social</h2>
+<h2>🎁 PockiBox</h2>
 
-<!-- ================= WISHES ================= -->
+<!-- ================= PROFILE ================= -->
+<div id="profile" class="section">
+  <div class="card" id="profileCard"></div>
+  <div id="profileWishes"></div>
+  <button onclick="closeProfile()">← Назад</button>
+</div>
+
+<!-- ================= MY ================= -->
 <div id="my" class="section active">
 
   <div class="card">
     <input id="title" placeholder="Что хочешь?" />
     <input id="price" placeholder="Цена" />
-    <button onclick="addWish()">Добавить желание</button>
+    <button onclick="addWish()">Добавить</button>
   </div>
 
   <div id="myList"></div>
@@ -40,22 +47,13 @@
   </div>
 
   <div class="card">
-    <b>📥 Заявки</b>
-    <div id="requestsList"></div>
-  </div>
-
-  <div class="card">
-    <b>👥 Мои друзья</b>
+    <b>👥 Друзья</b>
     <div id="friendsList"></div>
-  </div>
-
-  <div class="card">
-    <button onclick="inviteFriend()">📨 Пригласить друга</button>
   </div>
 
 </div>
 
-<!-- ================= BOTTOM NAV ================= -->
+<!-- ================= NAV ================= -->
 <div class="tabs">
   <div class="tab active" onclick="switchTab('my', this)">Мои</div>
   <div class="tab" onclick="switchTab('feed', this)">Лента</div>
@@ -68,7 +66,6 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 
 const user = tg.initDataUnsafe?.user;
-const referrerId = tg.initDataUnsafe?.start_param;
 
 const SUPABASE_URL = "https://wgrurjbmndghdsbogmbm.supabase.co";
 const SUPABASE_KEY = "sb_publishable_ksR28g5qpcdV3Ef9tSRNxg_IeJSeqTm";
@@ -91,26 +88,8 @@ async function init() {
     })
   });
 
-  // referral auto-friend
-  if (referrerId && Number(referrerId) !== user.id) {
-    await fetch(`${SUPABASE_URL}/rest/v1/friends`, {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        user_id: Number(referrerId),
-        friend_id: user.id,
-        status: "accepted"
-      })
-    });
-  }
-
   loadWishes();
   loadFriends();
-  loadRequests();
   loadFeed();
 }
 
@@ -125,15 +104,119 @@ function switchTab(tab, el) {
   el.classList.add('active');
 }
 
-/* ================= INVITE ================= */
-function inviteFriend() {
-  const link = `https://t.me/PockiBoxBot?startapp=${user.id}`;
+/* ================= FRIEND MODEL FIX ================= */
+function normalizePair(a, b) {
+  return {
+    user_a: Math.min(a, b),
+    user_b: Math.max(a, b)
+  };
+}
 
-  navigator.clipboard.writeText(link);
+/* ================= ADD FRIEND ================= */
+async function addFriend() {
+  const username = usernameInput.value.replace("@", "");
 
-  tg.openTelegramLink(
-    `https://t.me/share/url?url=${encodeURIComponent(link)}&text=🎁 PockiBox Wishlist`
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/users?username=eq.${username}`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`
+    }
+  });
+
+  const data = await res.json();
+
+  if (!data.length) {
+    friendMsg.innerHTML = "❌ Пользователь не найден";
+    return;
+  }
+
+  const friendId = data[0].telegram_id;
+
+  const pair = normalizePair(user.id, friendId);
+
+  await fetch(`${SUPABASE_URL}/rest/v1/friends`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      user_a: pair.user_a,
+      user_b: pair.user_b,
+      status: "pending"
+    })
+  });
+
+  friendMsg.innerHTML = "📨 заявка отправлена";
+}
+
+/* ================= LOAD FRIENDS ================= */
+async function loadFriends() {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/friends?or=(user_a.eq.${user.id},user_b.eq.${user.id})&status=eq.accepted`,
+    {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`
+      }
+    }
   );
+
+  const data = await res.json();
+
+  friendsList.innerHTML = data.map(f => {
+    const friendId = f.user_a === user.id ? f.user_b : f.user_a;
+
+    return `
+      <div class="card" onclick="openProfile(${friendId})">
+        👤 друг: ${friendId}
+      </div>
+    `;
+  }).join("");
+}
+
+/* ================= PROFILE ================= */
+async function openProfile(id) {
+
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/users?telegram_id=eq.${id}`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`
+    }
+  });
+
+  const u = await res.json();
+  const profile = u[0];
+
+  const w = await fetch(`${SUPABASE_URL}/rest/v1/wishes?user_id=eq.${id}`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`
+    }
+  });
+
+  const wishes = await w.json();
+
+  profileCard.innerHTML = `
+    <div class="card">
+      👤 <b>@${profile.username}</b><br>
+      🎁 ${wishes.length} wishes
+    </div>
+  `;
+
+  profileWishes.innerHTML = wishes.map(x => `
+    <div class="card">
+      🎁 ${x.title}
+    </div>
+  `).join("");
+
+  switchTab('profile', {});
+}
+
+/* ================= CLOSE PROFILE ================= */
+function closeProfile() {
+  switchTab('friends', document.querySelectorAll('.tab')[2]);
 }
 
 /* ================= WISHES ================= */
@@ -152,9 +235,7 @@ async function addWish() {
     })
   });
 
-  await addFeed("добавил желание");
   loadWishes();
-  loadFeed();
 }
 
 async function loadWishes() {
@@ -169,29 +250,12 @@ async function loadWishes() {
 
   myList.innerHTML = data.map(w => `
     <div class="card">
-      🎁 <b>${w.title}</b><br>
-      <span class="muted">${w.price || ""}</span><br><br>
-      <button onclick="reserveWish()">🎁 Забронировать</button>
+      🎁 ${w.title}
     </div>
   `).join("");
 }
 
 /* ================= FEED ================= */
-async function addFeed(text) {
-  await fetch(`${SUPABASE_URL}/rest/v1/feed`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      user_id: user.id,
-      text: `${user.username || "user"} ${text}`
-    })
-  });
-}
-
 async function loadFeed() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/feed?select=*`, {
     headers: {
@@ -207,102 +271,6 @@ async function loadFeed() {
       🧡 ${f.text}
     </div>
   `).join("");
-}
-
-/* ================= FRIENDS ================= */
-async function addFriend() {
-  const username = usernameInput.value.replace("@", "");
-
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/users?username=eq.${username}`, {
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`
-    }
-  });
-
-  const data = await res.json();
-
-  if (!data.length) {
-    friendMsg.innerHTML = "❌ Пользователь не найден. Пригласи его:";
-    return;
-  }
-
-  const friend = data[0];
-
-  await fetch(`${SUPABASE_URL}/rest/v1/friends`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      user_id: user.id,
-      friend_id: friend.telegram_id,
-      status: "pending"
-    })
-  });
-
-  friendMsg.innerHTML = "📨 Заявка отправлена";
-}
-
-/* ================= REQUESTS ================= */
-async function loadRequests() {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/friends?friend_id=eq.${user.id}&status=eq.pending`, {
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`
-    }
-  });
-
-  const data = await res.json();
-
-  requestsList.innerHTML = data.map(r => `
-    <div class="card">
-      👤 Заявка от ${r.user_id}
-      <button onclick="acceptFriend(${r.id})">Принять</button>
-    </div>
-  `).join("");
-}
-
-async function acceptFriend(id) {
-  await fetch(`${SUPABASE_URL}/rest/v1/friends?id=eq.${id}`, {
-    method: "PATCH",
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      status: "accepted"
-    })
-  });
-
-  loadRequests();
-  loadFriends();
-}
-
-/* ================= FRIENDS LIST ================= */
-async function loadFriends() {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/friends?user_id=eq.${user.id}&status=eq.accepted`, {
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`
-    }
-  });
-
-  const data = await res.json();
-
-  friendsList.innerHTML = data.map(f => `
-    <div class="card">
-      👤 friend id: ${f.friend_id}
-    </div>
-  `).join("");
-}
-
-/* ================= RESERVE ================= */
-function reserveWish() {
-  alert("🎁 Забронировано");
 }
 
 </script>
