@@ -47,6 +47,11 @@
   </div>
 
   <div class="card">
+    <b>📨 Заявки</b>
+    <div id="requestsList"></div>
+  </div>
+
+  <div class="card">
     <b>👥 Друзья</b>
     <div id="friendsList"></div>
   </div>
@@ -90,7 +95,13 @@ async function init() {
 
   loadWishes();
   loadFriends();
+  loadRequests();
   loadFeed();
+
+  setInterval(() => {
+    loadFriends();
+    loadRequests();
+  }, 5000);
 }
 
 init();
@@ -104,7 +115,7 @@ function switchTab(tab, el) {
   el.classList.add('active');
 }
 
-/* ================= FRIEND MODEL FIX ================= */
+/* ================= FRIEND MODEL ================= */
 function normalizePair(a, b) {
   return {
     user_a: Math.min(a, b),
@@ -149,9 +160,11 @@ async function addFriend() {
   });
 
   friendMsg.innerHTML = "📨 заявка отправлена";
+
+  loadRequests();
 }
 
-/* ================= LOAD FRIENDS ================= */
+/* ================= LOAD FRIENDS (ONLY ACCEPTED) ================= */
 async function loadFriends() {
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/friends?or=(user_a.eq.${user.id},user_b.eq.${user.id})&status=eq.accepted`,
@@ -174,6 +187,53 @@ async function loadFriends() {
       </div>
     `;
   }).join("");
+}
+
+/* ================= LOAD REQUESTS (FIXED) ================= */
+async function loadRequests() {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/friends?or=(user_a.eq.${user.id},user_b.eq.${user.id})&status=eq.pending`,
+    {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`
+      }
+    }
+  );
+
+  const data = await res.json();
+
+  requestsList.innerHTML = data.map(r => {
+    const from = r.user_a === user.id ? r.user_b : r.user_a;
+
+    return `
+      <div class="card">
+        📩 заявка от: ${from}
+        <button onclick="acceptFriend(${from})">Принять</button>
+      </div>
+    `;
+  }).join("");
+}
+
+/* ================= ACCEPT FRIEND ================= */
+async function acceptFriend(friendId) {
+  const pair = normalizePair(user.id, friendId);
+
+  await fetch(
+    `${SUPABASE_URL}/rest/v1/friends?user_a=eq.${pair.user_a}&user_b=eq.${pair.user_b}`,
+    {
+      method: "PATCH",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ status: "accepted" })
+    }
+  );
+
+  loadFriends();
+  loadRequests();
 }
 
 /* ================= PROFILE ================= */
