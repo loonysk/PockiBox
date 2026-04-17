@@ -3,45 +3,44 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PockiBox</title>
+  <title>PockiBox Social</title>
 
   <link rel="stylesheet" href="style.css"/>
-
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 
 <body>
 
-<h2>🎁 PockiBox Wishlist</h2>
+<h2>🎁 PockiBox</h2>
 
-<!-- WISHES -->
+<!-- ================= WISHES ================= -->
 <div id="my" class="section active">
 
   <div class="card">
     <input id="title" placeholder="Что хочешь?" />
     <input id="price" placeholder="Цена" />
-    <button onclick="addWish()">Добавить</button>
+    <button onclick="addWish()">Добавить желание</button>
   </div>
 
   <div id="myList"></div>
 </div>
 
-<!-- FEED -->
+<!-- ================= FEED ================= -->
 <div id="feed" class="section">
-  <div class="card muted">Лента пока пустая</div>
+  <div id="feedList"></div>
 </div>
 
-<!-- FRIENDS -->
+<!-- ================= FRIENDS ================= -->
 <div id="friends" class="section">
 
   <div class="card">
     <button onclick="inviteFriend()">📨 Пригласить друга</button>
-    <div class="muted">Поделись ссылкой</div>
+    <div class="muted">Делись ссылкой и добавляй друзей</div>
   </div>
 
 </div>
 
-<!-- BOTTOM NAV -->
+<!-- ================= BOTTOM NAV ================= -->
 <div class="tabs">
   <div class="tab active" onclick="switchTab('my', this)">Мои</div>
   <div class="tab" onclick="switchTab('feed', this)">Лента</div>
@@ -58,7 +57,7 @@ const user = tg.initDataUnsafe?.user;
 const SUPABASE_URL = "https://wgrurjbmndghdsbogmbm.supabase.co";
 const SUPABASE_KEY = "sb_publishable_ksR28g5qpcdV3Ef9tSRNxg_IeJSeqTm";
 
-/* INIT */
+/* ================= INIT ================= */
 async function init() {
   if (!user) return;
 
@@ -77,11 +76,12 @@ async function init() {
   });
 
   loadWishes();
+  loadFeed();
 }
 
 init();
 
-/* TABS */
+/* ================= TABS ================= */
 function switchTab(tab, el) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -90,9 +90,15 @@ function switchTab(tab, el) {
   el.classList.add('active');
 }
 
-/* INVITE */
+/* ================= AVATAR ================= */
+function avatar(name) {
+  return (name?.[0] || "U").toUpperCase();
+}
+
+/* ================= INVITE ================= */
 function inviteFriend() {
   const link = `https://t.me/PockiBoxBot?startapp=${user.id}`;
+
   navigator.clipboard.writeText(link);
 
   tg.openTelegramLink(
@@ -100,7 +106,7 @@ function inviteFriend() {
   );
 }
 
-/* WISHES */
+/* ================= WISHES ================= */
 async function addWish() {
   await fetch(`${SUPABASE_URL}/rest/v1/wishes`, {
     method: "POST",
@@ -117,9 +123,29 @@ async function addWish() {
     })
   });
 
+  await addFeed("added wish");
   loadWishes();
+  loadFeed();
 }
 
+/* ================= FEED EVENT ================= */
+async function addFeed(type) {
+  await fetch(`${SUPABASE_URL}/rest/v1/feed`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      user_id: user.id,
+      text: `${user.username || "User"} ${type}`,
+      type: type
+    })
+  });
+}
+
+/* ================= LOAD WISHES ================= */
 async function loadWishes() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/wishes?user_id=eq.${user.id}`, {
     headers: {
@@ -132,8 +158,51 @@ async function loadWishes() {
 
   myList.innerHTML = data.map(w => `
     <div class="card">
-      🎁 <b>${w.title}</b><br>
-      <span class="muted">${w.price || ""}</span>
+      👤 ${avatar(user.username)} <b>${w.title}</b><br>
+      <span class="muted">${w.price || ""}</span><br><br>
+      <button onclick="reserveWish('${w.id}')">🎁 Забронировать</button>
+    </div>
+  `).join("");
+}
+
+/* ================= RESERVE ================= */
+async function reserveWish(id) {
+  await addFeed("reserved a gift");
+
+  alert("Подарок забронирован 🎁");
+}
+
+/* ================= LOAD FEED ================= */
+async function loadFeed() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/feed?select=*`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`
+    }
+  });
+
+  const data = await res.json();
+
+  feedList.innerHTML = data.reverse().map(f => `
+    <div class="card">
+      <div style="display:flex;gap:10px;align-items:center;">
+        <div style="
+          width:32px;height:32px;
+          border-radius:50%;
+          background:#0095f6;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          color:white;
+          font-weight:700;">
+          ${avatar(f.text)}
+        </div>
+
+        <div>
+          <b>${f.text}</b><br>
+          <span class="muted">${new Date(f.created_at).toLocaleString()}</span>
+        </div>
+      </div>
     </div>
   `).join("");
 }
